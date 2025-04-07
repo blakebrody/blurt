@@ -5,71 +5,39 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Firebase Demo',
+      title: 'Firebase Demo',
       theme: ThemeData(
+        // This is the theme of your application.
+        //
+        // TRY THIS: Try running your application with "flutter run". You'll see
+        // the application has a purple toolbar. Then, without quitting the app,
+        // try changing the seedColor in the colorScheme below to Colors.green
+        // and then invoke "hot reload" (save your changes or press the "hot
+        // reload" button in a Flutter-supported IDE, or press "r" if you used
+        // the command line to start the app).
+        //
+        // Notice that the counter didn't reset back to zero; the application
+        // state is not lost during the reload. To reset the state, use hot
+        // restart instead.
+        //
+        // This works for code too, not just values: Most code changes can be
+        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const FirebaseInitializer(
-        child: MyHomePage(title: 'Flutter Firebase Demo'),
-      ),
-    );
-  }
-}
-
-class FirebaseInitializer extends StatefulWidget {
-  final Widget child;
-  
-  const FirebaseInitializer({Key? key, required this.child}) : super(key: key);
-  
-  @override
-  State<FirebaseInitializer> createState() => _FirebaseInitializerState();
-}
-
-class _FirebaseInitializerState extends State<FirebaseInitializer> {
-  final Future<FirebaseApp> _initialization = Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: _initialization,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return MaterialApp(
-            home: Scaffold(
-              body: Center(
-                child: Text(
-                  'Error initializing Firebase: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            ),
-          );
-        }
-        
-        if (snapshot.connectionState == ConnectionState.done) {
-          return widget.child;
-        }
-        
-        return const MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          ),
-        );
-      },
+      home: const MyHomePage(title: 'Firebase Demo'),
     );
   }
 }
@@ -94,49 +62,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  String _firebaseStatus = 'Testing Firebase connection...';
-
-  @override
-  void initState() {
-    super.initState();
-    _testFirebase();
-  }
-
-  Future<void> _testFirebase() async {
-    try {
-      print("Starting Firebase connection test...");
-      
-      // Get a reference to Firestore
-      final firestore = FirebaseFirestore.instance;
-      
-      // Try to create a document first
-      try {
-        print("Attempting to write to Firestore...");
-        await firestore.collection('test').doc('testDoc').set({
-          'message': 'Hello from Flutter',
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-        print("Successfully wrote to Firestore");
-      } catch (writeError) {
-        print("Error writing to Firestore: $writeError");
-      }
-      
-      // Try to get a collection
-      print("Attempting to read from Firestore...");
-      await firestore.collection('test').get();
-      print("Successfully read from Firestore");
-      
-      // If we get here, Firebase is connected
-      setState(() {
-        _firebaseStatus = 'Firebase is connected successfully!';
-      });
-    } catch (e) {
-      print("Firebase connection error: $e");
-      setState(() {
-        _firebaseStatus = 'Firebase connection error: $e';
-      });
-    }
-  }
+  String _firebaseStatus = 'Firebase is initialized';
 
   void _incrementCounter() {
     setState(() {
@@ -147,6 +73,37 @@ class _MyHomePageState extends State<MyHomePage> {
       // called again, and so nothing would appear to happen.
       _counter++;
     });
+  }
+
+  // Function to send dummy data to Firestore
+  Future<void> _sendDummyDataToFirestore() async {
+    setState(() {
+      _firebaseStatus = 'Sending data to Firestore...';
+    });
+
+    try {
+      // Get a reference to the Firestore collection
+      final CollectionReference dummyCollection = FirebaseFirestore.instance.collection('dummy_data');
+      
+      // Create a dummy data document
+      final dummyData = {
+        'message': 'Hello from Flutter!',
+        'timestamp': FieldValue.serverTimestamp(),
+        'counter': _counter,
+        'random_number': DateTime.now().millisecondsSinceEpoch % 1000,
+      };
+      
+      // Add the document to Firestore
+      await dummyCollection.add(dummyData);
+      
+      setState(() {
+        _firebaseStatus = 'Data sent successfully! ${DateTime.now().toString().substring(0, 19)}';
+      });
+    } catch (e) {
+      setState(() {
+        _firebaseStatus = 'Error: $e';
+      });
+    }
   }
 
   @override
@@ -191,15 +148,24 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: _sendDummyDataToFirestore,
+              child: const Text('Send Data to Firestore'),
+            ),
             const SizedBox(height: 20),
-            Text(
-              _firebaseStatus,
-              style: TextStyle(
-                color: _firebaseStatus.contains('error') 
-                  ? Colors.red 
-                  : _firebaseStatus.contains('success') 
-                    ? Colors.green 
-                    : Colors.blue,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Text(
+                _firebaseStatus,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _firebaseStatus.contains('Error') 
+                      ? Colors.red 
+                      : _firebaseStatus.contains('successfully') 
+                          ? Colors.green 
+                          : Colors.blue,
+                ),
               ),
             ),
           ],
