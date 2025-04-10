@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/storage_service.dart';
 import 'create_account_screen.dart';
 import 'blurt_feed_screen.dart';
 
@@ -45,6 +47,20 @@ class _LoginScreenState extends State<LoginScreen> {
           }
           return;
         }
+
+        // Store user data in local storage
+        final userData = result.docs.first.data() as Map<String, dynamic>;
+        userData['id'] = result.docs.first.id; // Add document ID to the user data
+        
+        // Convert any Timestamp objects to strings to make it JSON serializable
+        final userDataCopy = Map<String, dynamic>.from(userData);
+        if (userDataCopy.containsKey('createdAt') && userDataCopy['createdAt'] != null) {
+          if (userDataCopy['createdAt'] is Timestamp) {
+            userDataCopy['createdAt'] = (userDataCopy['createdAt'] as Timestamp).toDate().toIso8601String();
+          }
+        }
+        
+        await StorageService.saveUserData(userDataCopy);
 
         // Login successful, navigate to BlurtFeedScreen
         if (mounted) {

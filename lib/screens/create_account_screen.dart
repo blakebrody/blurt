@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/storage_service.dart';
 import 'blurt_feed_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
@@ -46,13 +47,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         }
 
         // Create user document
-        await users.add({
+        final docRef = await users.add({
           'email': _emailController.text,
           'name': _nameController.text,
           'handle': _handleController.text,
           'password': _passwordController.text, // Store password (Note: In production, this should be hashed)
           'createdAt': FieldValue.serverTimestamp(),
         });
+
+        // Store user data in local storage
+        final userData = {
+          'id': docRef.id,
+          'email': _emailController.text,
+          'name': _nameController.text,
+          'handle': _handleController.text,
+          'password': _passwordController.text,
+          'createdAt': DateTime.now().toIso8601String(), // Use ISO string format instead of Timestamp
+        };
+        await StorageService.saveUserData(userData);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
