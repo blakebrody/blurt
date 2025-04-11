@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/storage_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'profile_screen.dart';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -22,6 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _handleController;
   late TextEditingController _emailController;
   bool _isLoading = false;
+  String? _profileImageBase64;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -30,6 +35,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _handleController = TextEditingController(
         text: widget.userData['handle'].toString().replaceAll('@', ''));
     _emailController = TextEditingController(text: widget.userData['email']);
+    _profileImageBase64 = widget.userData['profileImage'];
   }
 
   @override
@@ -38,6 +44,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _handleController.dispose();
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 300,
+        maxHeight: 300,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _profileImageBase64 = base64Encode(bytes);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -55,6 +86,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'name': _nameController.text.trim(),
         'handle': _handleController.text.trim(),
         'email': _emailController.text.trim(),
+        'profileImage': _profileImageBase64,
       };
 
       // Check if handle already exists (if it was changed)
@@ -89,6 +121,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             'name': _nameController.text.trim(),
             'handle': _handleController.text.trim(),
             'email': _emailController.text.trim(),
+            'profileImage': _profileImageBase64,
           });
       
       // Update SharedPreferences
@@ -133,6 +166,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  Widget _buildProfileImage() {
+    if (_profileImageBase64 != null && _profileImageBase64!.isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: 50,
+          backgroundImage: MemoryImage(base64Decode(_profileImageBase64!)),
+        );
+      } catch (e) {
+        // If decoding fails, fall back to initial
+        return _buildInitialAvatar();
+      }
+    } else {
+      return _buildInitialAvatar();
+    }
+  }
+
+  Widget _buildInitialAvatar() {
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      child: Text(
+        _nameController.text.isNotEmpty
+            ? _nameController.text[0].toUpperCase()
+            : '?',
+        style: const TextStyle(
+          fontSize: 40,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,18 +216,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     const SizedBox(height: 16),
                     Center(
-                      child: CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        child: Text(
-                          _nameController.text.isNotEmpty
-                              ? _nameController.text[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            fontSize: 40,
-                            color: Colors.white,
+                      child: Stack(
+                        children: [
+                          _buildProfileImage(),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                ),
+                                onPressed: _pickImage,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 32),

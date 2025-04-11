@@ -60,6 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
         
+        // Ensure profile image is included if it exists
+        // This is important since we're now storing profile images
+        if (!userDataCopy.containsKey('profileImage') || userDataCopy['profileImage'] == null) {
+          userDataCopy['profileImage'] = '';
+        }
+        
         await StorageService.saveUserData(userDataCopy);
 
         // Login successful, navigate to BlurtFeedScreen

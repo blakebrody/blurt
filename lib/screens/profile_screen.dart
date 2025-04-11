@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/storage_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'blurt_feed_screen.dart';
 import 'search_screen.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -83,6 +85,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Widget _buildProfileImage() {
+    if (_userData != null && 
+        _userData!.containsKey('profileImage') && 
+        _userData!['profileImage'] != null &&
+        _userData!['profileImage'].toString().isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: 50,
+          backgroundImage: MemoryImage(base64Decode(_userData!['profileImage'])),
+        );
+      } catch (e) {
+        return _buildInitialAvatar();
+      }
+    } else {
+      return _buildInitialAvatar();
+    }
+  }
+
+  Widget _buildInitialAvatar() {
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      child: Text(
+        _userData!['name'][0].toUpperCase(),
+        style: const TextStyle(
+          fontSize: 40,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,17 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            child: Text(
-                              _userData!['name'][0].toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 40,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                          _buildProfileImage(),
                           ElevatedButton.icon(
                             onPressed: () {
                               Navigator.push(
@@ -147,6 +171,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildInfoTile('Name', _userData!['name']),
                       _buildInfoTile('Handle', '@${_userData!['handle']}'),
                       _buildInfoTile('Email', _userData!['email']),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChangePasswordScreen(
+                                  userData: _userData!,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.lock),
+                          label: const Text('Change Password'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

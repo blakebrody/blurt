@@ -53,6 +53,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'handle': _handleController.text,
           'password': _passwordController.text, // Store password (Note: In production, this should be hashed)
           'createdAt': FieldValue.serverTimestamp(),
+          'profileImage': '', // Initialize empty profile image
         });
 
         // Store user data in local storage
@@ -63,6 +64,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'handle': _handleController.text,
           'password': _passwordController.text,
           'createdAt': DateTime.now().toIso8601String(), // Use ISO string format instead of Timestamp
+          'profileImage': '', // Initialize empty profile image
         };
         await StorageService.saveUserData(userData);
 
