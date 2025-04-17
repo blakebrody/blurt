@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 
 class StorageService {
   // Keys
@@ -26,7 +27,7 @@ class StorageService {
       final userDataJson = jsonEncode(serializableData);
       return await prefs.setString(userKey, userDataJson);
     } catch (e) {
-      print('Error saving user data: $e');
+      Logger.error('Error saving user data', e);
       return false;
     }
   }
@@ -43,7 +44,7 @@ class StorageService {
       
       return jsonDecode(userDataJson) as Map<String, dynamic>;
     } catch (e) {
-      print('Error getting user data: $e');
+      Logger.error('Error getting user data', e);
       return null;
     }
   }
@@ -54,7 +55,7 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       return await prefs.remove(userKey);
     } catch (e) {
-      print('Error clearing user data: $e');
+      Logger.error('Error clearing user data', e);
       return false;
     }
   }
@@ -65,7 +66,7 @@ class StorageService {
       final userData = await getUserData();
       return userData != null;
     } catch (e) {
-      print('Error checking login status: $e');
+      Logger.error('Error checking login status', e);
       return false;
     }
   }

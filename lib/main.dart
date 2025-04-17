@@ -4,9 +4,14 @@ import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/blurt_feed_screen.dart';
 import 'services/storage_service.dart';
+import 'utils/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize logger (debug logs disabled in production)
+  Logger.initialize(isDebugMode: false); // Set to true only for development builds
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

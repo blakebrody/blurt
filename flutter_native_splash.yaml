@@ -1,0 +1,17 @@
+flutter_native_splash:
+  # This generates a single color splash screen, which is very light on size
+  color: "#ffffff"
+  # Alternatively use a very small image
+  # image: assets/images/splash.png
+  
+  # Disable splash screen generation for platforms we don't target
+  web: false
+  windows: false
+  macos: false
+
+  # Set background color in Android 12 splash screen
+  android_12:
+    color: "#ffffff"
+    # Alternatively use a very small image
+    # image: assets/images/splash.png
+    icon_background_color: "#ffffff" 

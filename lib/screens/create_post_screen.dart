@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/storage_service.dart';
 import 'blurt_feed_screen.dart';
+import '../utils/logger.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({Key? key}) : super(key: key);
@@ -60,7 +61,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         return;
       }
 
-      print('Attempting to post with user data: ${userData['handle']}');
+      Logger.log('Attempting to post with user data: ${userData['handle']}');
 
       // Create the data structure first for better debugging
       final blurtData = {
@@ -73,19 +74,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         'profileImage': userData['profileImage'] ?? '',
       };
       
-      print('Blurt data prepared: $blurtData');
+      Logger.log('Blurt data prepared');
       
       // Create blurt document
       final docRef = await FirebaseFirestore.instance
           .collection('blurts')
           .add(blurtData);
       
-      print('Blurt posted successfully with ID: ${docRef.id}');
+      Logger.log('Blurt posted successfully');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Blurt posted with ID: ${docRef.id}'),
+          const SnackBar(
+            content: Text('Blurt posted successfully'),
             backgroundColor: Colors.green,
           ),
         );
@@ -96,8 +97,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } catch (e, stackTrace) {
-      print('Error posting blurt: $e');
-      print('Stack trace: $stackTrace');
+      Logger.error('Error posting blurt', e, stackTrace);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
