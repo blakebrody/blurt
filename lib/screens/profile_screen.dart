@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/storage_service.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/user_blurt_list.dart';
+import '../utils/logger.dart';
 import 'blurt_feed_screen.dart';
 import 'search_screen.dart';
 import 'login_screen.dart';
@@ -19,6 +22,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
   int _currentIndex = 2; // Profile is index 2 in the bottom nav bar
+  Stream<QuerySnapshot>? _userBlurtsStream;
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
 
   @override
   void initState() {
@@ -36,9 +41,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _userData = userData;
         _isLoading = false;
+        
+        // Set up the stream for user's blurts
+        if (userData != null && userData['id'] != null) {
+          _userBlurtsStream = FirebaseFirestore.instance
+              .collection('blurts')
+              .where('userId', isEqualTo: userData['id'])
+              .orderBy('timestamp', descending: true)
+              .snapshots();
+        }
       });
     } catch (e) {
-      print('Error loading user data: $e');
+      Logger.error('Error loading user data', e);
       setState(() {
         _userData = null;
         _isLoading = false;
@@ -117,6 +131,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _handleBlurtTap(String blurtId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Viewing Blurt: $blurtId'))
+    );
+  }
+
+  void _handleBlurtDelete(String blurtId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('blurts')
+          .doc(blurtId)
+          .delete();
+          
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Blurt deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      Logger.error('Error deleting blurt', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting blurt: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshUserBlurts() async {
+    // Wait a bit to show the refresh indicator
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your blurts refreshed'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+    
+    // The StreamBuilder will automatically get updated data
+    return Future.value();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,6 +259,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             foregroundColor: Colors.white,
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Your Blurts',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: _userBlurtsStream == null
+                            ? const Center(child: Text('Unable to load your blurts'))
+                            : UserBlurtList(
+                                blurtsStream: _userBlurtsStream!,
+                                onBlurtTap: _handleBlurtTap,
+                                onBlurtDelete: _handleBlurtDelete,
+                                refreshIndicatorKey: _refreshIndicatorKey,
+                                onRefresh: _refreshUserBlurts,
+                              ),
                       ),
                     ],
                   ),
