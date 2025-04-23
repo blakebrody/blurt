@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/storage_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import 'blurt_feed_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
@@ -17,6 +17,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _handleController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -31,66 +32,65 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
       try {
-        // Get a reference to the users collection
-        final CollectionReference users = FirebaseFirestore.instance.collection('users');
-        
         // Check if handle is already taken
-        final handleQuery = await users.where('handle', isEqualTo: _handleController.text).get();
-        if (handleQuery.docs.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This handle is already taken')),
-          );
+        final isHandleTaken = await AuthService.isHandleTaken(_handleController.text);
+        if (isHandleTaken) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'This handle is already taken';
+          });
           return;
         }
 
-        // Create user document
-        final docRef = await users.add({
-          'email': _emailController.text,
-          'name': _nameController.text,
-          'handle': _handleController.text,
-          'password': _passwordController.text, // Store password (Note: In production, this should be hashed)
-          'createdAt': FieldValue.serverTimestamp(),
-          'profileImage': '', // Initialize empty profile image
-        });
+        // Create user with Firebase Auth
+        await AuthService.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          name: _nameController.text.trim(),
+          handle: _handleController.text.trim(),
+        );
 
-        // Store user data in local storage
-        final userData = {
-          'id': docRef.id,
-          'email': _emailController.text,
-          'name': _nameController.text,
-          'handle': _handleController.text,
-          'password': _passwordController.text,
-          'createdAt': DateTime.now().toIso8601String(), // Use ISO string format instead of Timestamp
-          'profileImage': '', // Initialize empty profile image
-        };
-        await StorageService.saveUserData(userData);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account created successfully!')),
-          );
-          // Navigate to BlurtFeedScreen instead of going back
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const BlurtFeedScreen()),
-            (route) => false, // Remove all previous routes
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating account: $e')),
-          );
-        }
-      } finally {
+        // Reset loading state and show success message
         if (mounted) {
           setState(() {
             _isLoading = false;
           });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Account created successfully!')),
+          );
+          
+          // Manually navigate to the feed screen (workaround for auth state not triggering navigation)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const BlurtFeedScreen()),
+          );
         }
+      } on FirebaseAuthException catch (e) {
+        setState(() {
+          _isLoading = false;
+          switch (e.code) {
+            case 'email-already-in-use':
+              _errorMessage = 'The email address is already in use';
+              break;
+            case 'weak-password':
+              _errorMessage = 'The password is too weak';
+              break;
+            case 'invalid-email':
+              _errorMessage = 'The email address is invalid';
+              break;
+            default:
+              _errorMessage = 'Error: ${e.message}';
+          }
+        });
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error creating account: $e';
+        });
       }
     }
   }
@@ -120,6 +120,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email address';
                   }
+                  if (!value.contains('@') || !value.contains('.')) {
+                    return 'Please enter a valid email address';
+                  }
                   return null;
                 },
               ),
@@ -148,6 +151,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your handle';
                   }
+                  if (value.contains(' ')) {
+                    return 'Handle cannot contain spaces';
+                  }
                   return null;
                 },
               ),
@@ -169,6 +175,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   return null;
                 },
               ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleCreateAccount,

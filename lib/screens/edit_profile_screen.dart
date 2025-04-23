@@ -112,7 +112,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       }
 
-      // Update Firestore
+      // Update Firestore user document
       final String userId = widget.userData['id'];
       await FirebaseFirestore.instance
           .collection('users')
@@ -123,6 +123,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             'email': _emailController.text.trim(),
             'profileImage': _profileImageBase64,
           });
+      
+      // Update all blurts made by this user
+      final blurtsQuery = await FirebaseFirestore.instance
+          .collection('blurts')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      // Create a batch to update all blurts at once
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in blurtsQuery.docs) {
+        batch.update(doc.reference, {
+          'handle': _handleController.text.trim(),
+          'userName': _nameController.text.trim(),
+          'profileImage': _profileImageBase64,
+        });
+      }
+      await batch.commit();
       
       // Update SharedPreferences
       final success = await StorageService.saveUserData(updatedUserData);

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/storage_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import 'create_account_screen.dart';
 import 'blurt_feed_screen.dart';
 
@@ -14,13 +13,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _handleController = TextEditingController();
+  final _handleOrEmailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _handleController.dispose();
+    _handleOrEmailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -29,68 +29,74 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
       try {
-        // Query Firestore for a user with matching handle and password
-        final QuerySnapshot result = await FirebaseFirestore.instance
-            .collection('users')
-            .where('handle', isEqualTo: _handleController.text)
-            .where('password', isEqualTo: _passwordController.text)
-            .get();
-
-        if (result.docs.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Invalid handle or password')),
-            );
+        final input = _handleOrEmailController.text.trim();
+        final password = _passwordController.text;
+        
+        // Determine if input is email or handle
+        String email;
+        if (input.contains('@')) {
+          // Input is an email
+          email = input;
+        } else {
+          // Input is a handle, get the email
+          final userEmail = await AuthService.getEmailFromHandle(input);
+          if (userEmail == null) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'User not found with this handle';
+            });
+            return;
           }
-          return;
+          email = userEmail;
         }
+        
+        // Sign in with email and password using Firebase Auth
+        await AuthService.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
 
-        // Store user data in local storage
-        final userData = result.docs.first.data() as Map<String, dynamic>;
-        userData['id'] = result.docs.first.id; // Add document ID to the user data
-        
-        // Convert any Timestamp objects to strings to make it JSON serializable
-        final userDataCopy = Map<String, dynamic>.from(userData);
-        if (userDataCopy.containsKey('createdAt') && userDataCopy['createdAt'] != null) {
-          if (userDataCopy['createdAt'] is Timestamp) {
-            userDataCopy['createdAt'] = (userDataCopy['createdAt'] as Timestamp).toDate().toIso8601String();
-          }
-        }
-        
-        // Ensure profile image is included if it exists
-        // This is important since we're now storing profile images
-        if (!userDataCopy.containsKey('profileImage') || userDataCopy['profileImage'] == null) {
-          userDataCopy['profileImage'] = '';
-        }
-        
-        await StorageService.saveUserData(userDataCopy);
-
-        // Login successful, navigate to BlurtFeedScreen
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login successful!')),
-          );
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const BlurtFeedScreen()),
-            (route) => false,
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error during login: $e')),
-          );
-        }
-      } finally {
+        // Reset loading state and show success message
         if (mounted) {
           setState(() {
             _isLoading = false;
           });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login successful!')),
+          );
+          
+          // Manually navigate to the feed screen (workaround for auth state not triggering navigation)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const BlurtFeedScreen()),
+          );
         }
+      } on FirebaseAuthException catch (e) {
+        setState(() {
+          _isLoading = false;
+          switch (e.code) {
+            case 'user-not-found':
+              _errorMessage = 'No user found with this email';
+              break;
+            case 'wrong-password':
+              _errorMessage = 'Incorrect password';
+              break;
+            case 'invalid-credential':
+              _errorMessage = 'Invalid login credentials';
+              break;
+            default:
+              _errorMessage = 'Error: ${e.message}';
+          }
+        });
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error: $e';
+        });
       }
     }
   }
@@ -117,14 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextFormField(
-                controller: _handleController,
+                controller: _handleOrEmailController,
                 decoration: const InputDecoration(
-                  labelText: 'Handle',
+                  labelText: 'Email or Handle',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your handle';
+                    return 'Please enter your email or handle';
                   }
                   return null;
                 },
@@ -144,6 +150,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   return null;
                 },
               ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleLogin,

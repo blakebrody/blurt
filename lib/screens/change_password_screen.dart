@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/storage_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import 'profile_screen.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -24,6 +24,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _obscureOldPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -40,74 +41,50 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
-      // Verify old password
-      final String userId = widget.userData['id'];
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      // Update password using Firebase Auth
+      await AuthService.updatePassword(
+        currentPassword: _oldPasswordController.text,
+        newPassword: _newPasswordController.text,
+      );
 
-      if (doc.exists) {
-        final userData = doc.data() as Map<String, dynamic>;
-        if (userData['password'] != _oldPasswordController.text) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Incorrect old password'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            setState(() {
-              _isLoading = false;
-            });
-          }
-          return;
-        }
-
-        // Update password in Firestore
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .update({
-              'password': _newPasswordController.text,
-            });
-
-        // Update password in SharedPreferences
-        final updatedUserData = {
-          ...widget.userData,
-          'password': _newPasswordController.text,
-        };
-        await StorageService.saveUserData(updatedUserData);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password updated successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfileScreen()),
-          );
-        }
-      }
-    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text('Password updated successfully!'),
+            backgroundColor: Colors.green,
           ),
         );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        );
       }
-    } finally {
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+        switch (e.code) {
+          case 'wrong-password':
+            _errorMessage = 'Incorrect old password';
+            break;
+          case 'weak-password':
+            _errorMessage = 'New password is too weak';
+            break;
+          case 'requires-recent-login':
+            _errorMessage = 'Please log in again before changing your password';
+            break;
+          default:
+            _errorMessage = 'Error: ${e.message}';
+        }
+      });
+    } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _errorMessage = 'Error: ${e.toString()}';
         });
       }
     }
@@ -216,6 +193,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         return null;
                       },
                     ),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
