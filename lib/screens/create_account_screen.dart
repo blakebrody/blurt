@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../utils/logger.dart';
+import '../utils/handle_validator.dart';
 import 'blurt_feed_screen.dart';
+import 'email_verification_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
@@ -10,7 +13,7 @@ class CreateAccountScreen extends StatefulWidget {
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
-class _CreateAccountScreenState extends State<CreateAccountScreen> {
+class _CreateAccountScreenState extends State<CreateAccountScreen> with HandleValidatorMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
@@ -18,16 +21,26 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  
+  @override
+  TextEditingController get handleController => _handleController;
+
+  @override
+  void initState() {
+    super.initState();
+    initHandleValidator();
+  }
 
   @override
   void dispose() {
+    disposeHandleValidator();
     _emailController.dispose();
     _nameController.dispose();
     _handleController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-
+  
   Future<void> _handleCreateAccount() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -36,12 +49,29 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       });
 
       try {
-        // Check if handle is already taken
-        final isHandleTaken = await AuthService.isHandleTaken(_handleController.text);
-        if (isHandleTaken) {
+        final handle = _handleController.text.trim();
+        
+        // Double-check if handle is already taken right before account creation
+        Logger.log('[CreateAccount] Final check if handle is taken: $handle');
+        final isHandleTakenNow = await AuthService.isHandleTaken(handle);
+        
+        if (isHandleTakenNow) {
+          Logger.log('[CreateAccount] Handle is taken during final check: $handle');
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'This handle is already taken. Please choose another.';
+              handleError = 'This handle is already taken';
+            });
+          }
+          return;
+        }
+        
+        // Check if we have any handle validation errors
+        if (handleError != null) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'This handle is already taken';
+            _errorMessage = handleError;
           });
           return;
         }
@@ -51,7 +81,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
           name: _nameController.text.trim(),
-          handle: _handleController.text.trim(),
+          handle: handle,
         );
 
         // Reset loading state and show success message
@@ -63,10 +93,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             const SnackBar(content: Text('Account created successfully!')),
           );
           
-          // Manually navigate to the feed screen (workaround for auth state not triggering navigation)
+          // Manually navigate to the email verification screen
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const BlurtFeedScreen()),
+            MaterialPageRoute(builder: (context) => const EmailVerificationScreen()),
           );
         }
       } on FirebaseAuthException catch (e) {
@@ -120,7 +150,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email address';
                   }
-                  if (!value.contains('@') || !value.contains('.')) {
+                  // Use a regex to validate email format
+                  final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                  if (!emailRegex.hasMatch(value)) {
                     return 'Please enter a valid email address';
                   }
                   return null;
@@ -141,22 +173,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _handleController,
-                decoration: const InputDecoration(
-                  labelText: 'Handle',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your handle';
-                  }
-                  if (value.contains(' ')) {
-                    return 'Handle cannot contain spaces';
-                  }
-                  return null;
-                },
-              ),
+              buildHandleField(labelText: 'Handle'),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
@@ -185,7 +202,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _isLoading ? null : _handleCreateAccount,
+                onPressed: (_isLoading || isCheckingHandle || handleError != null) 
+                  ? null 
+                  : _handleCreateAccount,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),

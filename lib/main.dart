@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/blurt_feed_screen.dart';
+import 'screens/email_verification_screen.dart';
 import 'services/storage_service.dart';
 import 'services/auth_service.dart';
 import 'utils/logger.dart';
@@ -79,6 +80,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // If logged in but no local user data, fetch and store it
         if (isLoggedIn) {
           _ensureUserDataLoaded(snapshot.data!);
+          
+          // Check if email is verified
+          final isEmailVerified = snapshot.data!.emailVerified;
+          Logger.log('Email verified: $isEmailVerified');
+          
+          if (!isEmailVerified) {
+            // If email not verified, show the verification screen
+            Logger.log('Navigating to: EmailVerificationScreen');
+            return const EmailVerificationScreen();
+          }
         }
         
         // Log navigation decision

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/storage_service.dart';
+import '../services/auth_service.dart';
+import '../utils/logger.dart';
+import '../utils/handle_validator.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'profile_screen.dart';
 import 'dart:convert';
@@ -19,7 +22,7 @@ class EditProfileScreen extends StatefulWidget {
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
+class _EditProfileScreenState extends State<EditProfileScreen> with HandleValidatorMixin {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _handleController;
@@ -27,6 +30,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
   String? _profileImageBase64;
   final ImagePicker _picker = ImagePicker();
+  
+  @override
+  TextEditingController get handleController => _handleController;
+
+  @override
+  String? get currentUserHandle => widget.userData['handle'];
 
   @override
   void initState() {
@@ -36,16 +45,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         text: widget.userData['handle'].toString().replaceAll('@', ''));
     _emailController = TextEditingController(text: widget.userData['email']);
     _profileImageBase64 = widget.userData['profileImage'];
+    
+    // Initialize handle validator
+    initHandleValidator();
   }
 
   @override
   void dispose() {
+    disposeHandleValidator();
     _nameController.dispose();
     _handleController.dispose();
     _emailController.dispose();
     super.dispose();
   }
-
+  
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -81,36 +94,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
-      final updatedUserData = {
-        ...widget.userData,
-        'name': _nameController.text.trim(),
-        'handle': _handleController.text.trim(),
-        'email': _emailController.text.trim(),
-        'profileImage': _profileImageBase64,
-      };
-
-      // Check if handle already exists (if it was changed)
-      if (widget.userData['handle'] != _handleController.text.trim()) {
-        final handleQuery = await FirebaseFirestore.instance
-            .collection('users')
-            .where('handle', isEqualTo: _handleController.text.trim())
-            .get();
+      final newHandle = _handleController.text.trim();
+      final currentHandle = widget.userData['handle'];
+      
+      // Only check for handle uniqueness if the handle has changed
+      if (newHandle != currentHandle) {
+        Logger.log('[SaveProfile] Handle changed from $currentHandle to $newHandle, checking uniqueness');
         
-        if (handleQuery.docs.isNotEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('This handle is already taken'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            setState(() {
-              _isLoading = false;
-            });
+        // Make one final check to ensure handle is available
+        final isHandleTaken = await AuthService.isHandleTaken(newHandle);
+        if (isHandleTaken) {
+          // Check if it's taken by someone else
+          final handleOwnerData = await AuthService.getUserByHandle(newHandle);
+          final handleOwnerId = handleOwnerData?['uid'] ?? '';
+          final currentUserId = widget.userData['id'];
+          
+          Logger.log('[SaveProfile] Owner ID: $handleOwnerId, User ID: $currentUserId');
+          
+          if (handleOwnerId != currentUserId) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('This handle is already taken by another user'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              setState(() {
+                _isLoading = false;
+                handleError = 'This handle is already taken by another user';
+              });
+            }
+            return;
           }
+        }
+        
+        // Final check for handle availability (from UI validation)
+        if (handleError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(handleError!),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() {
+            _isLoading = false;
+          });
           return;
         }
       }
+
+      final updatedUserData = {
+        ...widget.userData,
+        'name': _nameController.text.trim(),
+        'handle': newHandle,
+        'email': _emailController.text.trim(),
+        'profileImage': _profileImageBase64,
+      };
 
       // Update Firestore user document
       final String userId = widget.userData['id'];
@@ -119,7 +158,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           .doc(userId)
           .update({
             'name': _nameController.text.trim(),
-            'handle': _handleController.text.trim(),
+            'handle': newHandle,
             'email': _emailController.text.trim(),
             'profileImage': _profileImageBase64,
           });
@@ -134,7 +173,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final batch = FirebaseFirestore.instance.batch();
       for (final doc in blurtsQuery.docs) {
         batch.update(doc.reference, {
-          'handle': _handleController.text.trim(),
+          'handle': newHandle,
           'userName': _nameController.text.trim(),
           'profileImage': _profileImageBase64,
         });
@@ -166,6 +205,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       }
     } catch (e) {
+      Logger.error('Error updating profile', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -271,23 +311,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _handleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Handle',
-                        border: OutlineInputBorder(),
-                        prefixText: '@',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a handle';
-                        }
-                        if (value.contains(' ')) {
-                          return 'Handle cannot contain spaces';
-                        }
-                        return null;
-                      },
-                    ),
+                    buildHandleField(labelText: 'Handle'),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
@@ -311,15 +335,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _saveProfile,
+                        onPressed: (_isLoading || isCheckingHandle || handleError != null) 
+                            ? null 
+                            : _saveProfile,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.primary,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text(
-                          'Save Changes',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'Save Changes',
+                                style: TextStyle(fontSize: 16),
+                              ),
                       ),
                     ),
                   ],

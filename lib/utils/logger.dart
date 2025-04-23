@@ -1,37 +1,36 @@
 class Logger {
-  static bool _isDebugMode = false;
+  // Always keep debug mode on during development
+  static bool _isDebugMode = true;
 
   // Call this method at app startup to enable/disable logging
-  static void initialize({bool isDebugMode = false}) {
-    _isDebugMode = isDebugMode;
-    print('Logger initialized, debug mode: $_isDebugMode');
+  static void initialize({bool isDebugMode = true}) {
+    _isDebugMode = true; // Force debug mode on for testing
+    print('🔧 Logger initialized, debug mode: $_isDebugMode');
   }
 
   // Log method that only prints in debug mode
   static void log(dynamic message) {
-    if (_isDebugMode) {
-      print('LOG: $message');
-    }
+    // Always log during development
+    print('📝 LOG: $message');
   }
 
   // Error logging - always print errors, but with more details in debug mode
   static void error(dynamic message, [dynamic error, StackTrace? stackTrace]) {
     // Always print errors, even in production
-    print('ERROR: $message');
+    print('❌ ERROR: $message');
     
     if (error != null) {
-      print('DETAILS: $error');
+      print('⚠️ DETAILS: $error');
     }
     
-    if (_isDebugMode && stackTrace != null) {
-      print(stackTrace);
+    if (stackTrace != null) {
+      print('📋 STACK: \n$stackTrace');
     }
   }
   
   // Warning logging
   static void warning(dynamic message) {
-    if (_isDebugMode) {
-      print('WARNING: $message');
-    }
+    // Always log warnings during development
+    print('⚠️ WARNING: $message');
   }
 } 
