@@ -4,7 +4,8 @@ import '../services/storage_service.dart';
 import '../services/auth_service.dart';
 import '../utils/logger.dart';
 import '../utils/handle_validator.dart';
-import '../widgets/bottom_nav_bar.dart';
+import '../utils/app_styles.dart';
+import '../widgets/app_logo.dart';
 import 'profile_screen.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
@@ -258,51 +259,54 @@ class _EditProfileScreenState extends State<EditProfileScreen> with HandleValida
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+      backgroundColor: AppStyles.backgroundColor,
+      appBar: _buildAppBar(),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
+              ),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Stack(
-                        children: [
-                          _buildProfileImage(),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        _buildProfileImage(),
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppStyles.primaryColor,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(38),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
                                 ),
-                                onPressed: _pickImage,
-                              ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 32),
-                    TextFormField(
+                    _buildTextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        border: OutlineInputBorder(),
-                      ),
+                      labelText: 'Name',
+                      icon: Icons.person,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Please enter your name';
@@ -310,57 +314,119 @@ class _EditProfileScreenState extends State<EditProfileScreen> with HandleValida
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-                    buildHandleField(labelText: 'Handle'),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@') || !value.contains('.')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
+                    buildHandleField(
+                      labelText: 'Handle',
                     ),
-                    const SizedBox(height: 32),
-                    SizedBox(
+                    const SizedBox(height: 16),
+                    Text(
+                      'Your handle is unique and is how others can find you.',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
                       width: double.infinity,
-                      height: 50,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: AppStyles.blueGradient,
+                        boxShadow: AppStyles.buttonShadow,
+                      ),
                       child: ElevatedButton(
-                        onPressed: (_isLoading || isCheckingHandle || handleError != null) 
-                            ? null 
-                            : _saveProfile,
+                        onPressed: _isLoading ? null : _saveProfile,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor: Colors.transparent,
                           foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text(
-                                'Save Changes',
-                                style: TextStyle(fontSize: 16),
-                              ),
+                        child: const Text(
+                          'Save Profile',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+  
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      title: Row(
+        children: [
+          const AppLogo(size: 40),
+          const SizedBox(width: 10),
+          Text(
+            'Edit Profile',
+            style: AppStyles.headingStyle,
+          ),
+        ],
+      ),
+      leading: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppStyles.surfaceColor,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.arrow_back, size: 20),
+        ),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+  
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required IconData icon,
+    String? Function(String?)? validator,
+    String? errorText,
+    Function(String)? onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppStyles.surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppStyles.cardShadow,
+        ),
+        child: TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: labelText,
+            labelStyle: TextStyle(color: Colors.grey[500]),
+            errorText: errorText,
+            prefixIcon: Icon(icon, color: Colors.grey[500]),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: AppStyles.primaryColor, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          ),
+          style: AppStyles.bodyStyle,
+          validator: validator,
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 } 

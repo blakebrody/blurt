@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/storage_service.dart';
 import 'blurt_feed_screen.dart';
 import '../utils/logger.dart';
+import '../utils/app_styles.dart';
+import '../widgets/app_logo.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({Key? key}) : super(key: key);
@@ -51,9 +53,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (userData == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You need to be logged in to post a blurt'),
+            SnackBar(
+              content: const Text('You need to be logged in to post a blurt'),
               backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.all(10),
             ),
           );
         }
@@ -85,9 +90,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Blurt posted successfully'),
+          SnackBar(
+            content: const Text('Blurt posted successfully'),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(10),
           ),
         );
         // Navigate back to feed
@@ -104,7 +112,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           SnackBar(
             content: Text('Error posting blurt: ${e.toString()}'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 10),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(10),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -120,12 +131,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Blurt'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+      backgroundColor: AppStyles.backgroundColor,
+      appBar: _buildAppBar(),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
+              ),
+            )
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Form(
@@ -133,48 +146,71 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: _contentController,
-                      decoration: const InputDecoration(
-                        hintText: "What's on your mind?",
-                        border: OutlineInputBorder(),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppStyles.surfaceColor,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: AppStyles.cardShadow,
                       ),
-                      maxLines: 5,
-                      maxLength: _maxCharacterCount,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter some content';
-                        }
-                        if (value.length > _maxCharacterCount) {
-                          return 'Content too long (max $_maxCharacterCount characters)';
-                        }
-                        return null;
-                      },
+                      child: TextFormField(
+                        controller: _contentController,
+                        decoration: InputDecoration(
+                          hintText: "What's on your mind?",
+                          hintStyle: TextStyle(color: Colors.grey[500]),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.all(20),
+                        ),
+                        style: AppStyles.bodyStyle,
+                        maxLines: 5,
+                        maxLength: _maxCharacterCount,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter some content';
+                          }
+                          if (value.length > _maxCharacterCount) {
+                            return 'Content too long (max $_maxCharacterCount characters)';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
                       child: Text(
-                        '$_characterCount/$_maxCharacterCount',
+                        '$_characterCount/$_maxCharacterCount characters',
                         style: TextStyle(
                           color: _characterCount > _maxCharacterCount
-                              ? Colors.red
-                              : Colors.grey,
+                              ? Colors.red[400]
+                              : Colors.grey[400],
+                          fontSize: 14,
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
+                    Container(
                       width: double.infinity,
-                      height: 50,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: AppStyles.blueGradient,
+                        boxShadow: AppStyles.buttonShadow,
+                      ),
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _createBlurt,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor: Colors.transparent,
                           foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                         child: const Text(
                           'Post Blurt',
-                          style: TextStyle(fontSize: 16),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -182,6 +218,34 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
               ),
             ),
+    );
+  }
+  
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      title: Row(
+        children: [
+          const AppLogo(size: 40),
+          const SizedBox(width: 10),
+          Text(
+            'Create Blurt',
+            style: AppStyles.headingStyle,
+          ),
+        ],
+      ),
+      leading: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppStyles.surfaceColor,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.arrow_back, size: 20),
+        ),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
     );
   }
 } 

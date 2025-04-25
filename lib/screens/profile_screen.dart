@@ -5,6 +5,8 @@ import '../services/storage_service.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/user_blurt_list.dart';
 import '../utils/logger.dart';
+import '../utils/app_styles.dart';
+import '../widgets/app_logo.dart';
 import 'blurt_feed_screen.dart';
 import 'search_screen.dart';
 import 'login_screen.dart';
@@ -204,24 +206,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadUserData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
-          ),
-        ],
-      ),
+      backgroundColor: AppStyles.backgroundColor,
+      appBar: _buildAppBar(),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
+              ),
+            )
           : _userData == null
-              ? const Center(child: Text('No user data found'))
+              ? Center(
+                  child: Text(
+                    'No user data found',
+                    style: AppStyles.subheadingStyle,
+                  ),
+                )
               : Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -305,6 +304,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         currentIndex: _currentIndex,
         onTap: _onNavBarTap,
       ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      title: Row(
+        children: [
+          const AppLogo(size: 40),
+          const SizedBox(width: 10),
+          Text(
+            'Profile',
+            style: AppStyles.headingStyle,
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppStyles.surfaceColor,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.refresh, size: 20),
+          ),
+          onPressed: _loadUserData,
+        ),
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppStyles.surfaceColor,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.logout, size: 20),
+          ),
+          onPressed: _handleLogout,
+        ),
+        const SizedBox(width: 8),
+      ],
     );
   }
 

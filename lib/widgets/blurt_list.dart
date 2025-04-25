@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/logger.dart';
+import '../utils/app_styles.dart';
 import 'blurt_card.dart';
 
 class BlurtList extends StatelessWidget {
@@ -28,7 +29,7 @@ class BlurtList extends StatelessWidget {
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return _buildLoadingWidget();
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -41,6 +42,7 @@ class BlurtList extends StatelessWidget {
         return ListView.builder(
           // Make sure the list is always scrollable for refresh
           physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 8, bottom: 20),
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             final doc = snapshot.data!.docs[index];
@@ -61,6 +63,8 @@ class BlurtList extends StatelessWidget {
       return RefreshIndicator(
         key: refreshIndicatorKey!,
         onRefresh: onRefresh!,
+        color: AppStyles.primaryColor,
+        backgroundColor: AppStyles.surfaceColor,
         child: content,
       );
     }
@@ -68,14 +72,70 @@ class BlurtList extends StatelessWidget {
     return content;
   }
 
+  Widget _buildLoadingWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 50,
+            height: 50,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppStyles.primaryColor),
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Loading blurts...',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildErrorWidget(BuildContext context, dynamic error) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
         const SizedBox(height: 100),
-        const Center(child: Icon(Icons.error, color: Colors.red, size: 50)),
+        Icon(Icons.error_outline, color: Colors.red[400], size: 70),
         const SizedBox(height: 20),
-        Center(child: Text('Error: $error')),
+        Center(
+          child: Text(
+            'Oops! Something went wrong',
+            style: AppStyles.subheadingStyle,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              error.toString(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+        Center(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              refreshIndicatorKey?.currentState?.show();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try Again'),
+            style: AppStyles.primaryButtonStyle,
+          ),
+        ),
       ],
     );
   }
@@ -83,11 +143,26 @@ class BlurtList extends StatelessWidget {
   Widget _buildEmptyWidget() {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: const [
-        SizedBox(height: 100),
-        Center(child: Icon(Icons.feed, color: Colors.grey, size: 50)),
-        SizedBox(height: 20),
-        Center(child: Text('No blurts yet. Be the first to blurt!')),
+      children: [
+        const SizedBox(height: 100),
+        Icon(Icons.bubble_chart, color: Colors.grey[700], size: 70),
+        const SizedBox(height: 20),
+        Center(
+          child: Text(
+            'No blurts yet',
+            style: AppStyles.subheadingStyle,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            'Be the first to share something!',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 16,
+            ),
+          ),
+        ),
       ],
     );
   }

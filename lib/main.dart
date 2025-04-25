@@ -30,7 +30,82 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Blurt',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.dark(
+          primary: const Color(0xFF3F8CFF),
+          secondary: const Color(0xFF4ECDC4),
+          background: const Color(0xFF121416),
+          surface: const Color(0xFF1D2024),
+          onBackground: Colors.white,
+          onSurface: Colors.white,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF121416),
+        cardTheme: CardTheme(
+          color: const Color(0xFF1D2024),
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1D2024),
+          elevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: Colors.white,
+          ),
+          iconTheme: IconThemeData(
+            color: Colors.white,
+          ),
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: const Color(0xFF1D2024),
+          selectedItemColor: const Color(0xFF3F8CFF),
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+          elevation: 8,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF3F8CFF),
+            foregroundColor: Colors.white,
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF262A2F),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF3F8CFF), width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontWeight: FontWeight.bold),
+          displayMedium: TextStyle(fontWeight: FontWeight.bold),
+          displaySmall: TextStyle(fontWeight: FontWeight.bold),
+          headlineMedium: TextStyle(fontWeight: FontWeight.bold),
+          headlineSmall: TextStyle(fontWeight: FontWeight.bold),
+          titleLarge: TextStyle(fontWeight: FontWeight.bold),
+          titleMedium: TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
       home: const AuthWrapper(),
     );
